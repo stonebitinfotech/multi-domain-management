@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DNS Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+
+  <!-- ============ Login ============ -->
+  <div id="login-view" class="login" hidden>
+    <div class="login-glow" aria-hidden="true"></div>
+    <form id="login-form" class="login-card">
+      <div class="logo-mark lg"><i data-icon="globe"></i></div>
+      <h1>Welcome back</h1>
+      <p class="muted">Sign in to manage DNS for all your domains</p>
+      <label class="field"><span>Username</span>
+        <input name="username" autocomplete="username" required>
+      </label>
+      <label class="field"><span>Password</span>
+        <input name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <p id="login-error" class="form-error" hidden></p>
+      <button class="btn primary lg block" type="submit">Sign in</button>
+    </form>
+  </div>
+
+  <!-- ============ App ============ -->
+  <div id="app-view" class="app" hidden>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo-mark"><i data-icon="globe"></i></div>
+        <div class="brand-text"><b>DNS Panel</b><small>All domains, one place</small></div>
+      </div>
+
+      <button id="add-zone-btn" class="btn primary block" type="button"><i data-icon="plus"></i> Add domain</button>
+
+      <div class="search">
+        <i data-icon="search"></i>
+        <input id="zone-search" type="search" placeholder="Search domains" aria-label="Search domains">
+      </div>
+
+      <div class="side-label">Domains <span id="zone-count" class="pill-count"></span></div>
+      <ul id="zone-list" class="zone-list"></ul>
+
+      <div class="side-footer">
+        <button id="overview-btn" class="side-link" type="button"><i data-icon="grid"></i> Overview</button>
+        <button id="export-all-btn" class="side-link" type="button"><i data-icon="download"></i> Export all domains</button>
+        <button class="side-link" type="button" data-proxy-help><i data-icon="cloud"></i> What is proxy?</button>
+        <div class="user-row">
+          <div id="user-avatar" class="avatar sm"></div>
+          <span id="who" class="who"></span>
+          <button id="theme-btn" class="icon-btn" type="button" title="Switch light / dark" aria-label="Switch light / dark"><i data-icon="moon"></i></button>
+          <button id="logout-btn" class="icon-btn" type="button" title="Logout" aria-label="Logout"><i data-icon="logout"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- Overview -->
+      <section id="overview-view"></section>
+
+      <!-- One domain -->
+      <section id="zone-view" hidden>
+        <button id="back-btn" class="btn ghost sm mobile-only" type="button"><i data-icon="back"></i> All domains</button>
+
+        <header class="zone-header">
+          <div class="zone-title">
+            <div id="zone-avatar" class="avatar lg"></div>
+            <div class="zone-title-text">
+              <div class="zone-name-row"><h1 id="zone-name"></h1><span id="zone-status"></span></div>
+              <p id="zone-sub" class="muted"></p>
+            </div>
+          </div>
+          <div class="zone-actions">
+            <button id="export-btn" class="btn" type="button"><i data-icon="download"></i> Export</button>
+            <button id="import-btn" class="btn" type="button"><i data-icon="upload"></i> Import</button>
+            <button id="add-record-btn" class="btn primary" type="button"><i data-icon="plus"></i> Add record</button>
+          </div>
+        </header>
+
+        <div id="ns-box" hidden></div>
+        <div id="stats" class="stats"></div>
+
+        <div class="filters">
+          <div class="search grow">
+            <i data-icon="search"></i>
+            <input id="record-search" type="search" placeholder="Search by name or value" aria-label="Search records">
+          </div>
+          <div id="type-chips" class="chips"></div>
+        </div>
+
+        <div id="bulk-bar" class="bulk-bar" hidden>
+          <span id="bulk-count" class="bulk-count"></span>
+          <div class="bulk-actions">
+            <button class="btn sm" type="button" data-bulk="proxy-on"><i data-icon="cloud"></i> Proxy on</button>
+            <button class="btn sm" type="button" data-bulk="proxy-off"><i data-icon="cloud-off"></i> Proxy off</button>
+            <button class="btn sm danger-soft" type="button" data-bulk="delete"><i data-icon="trash"></i> Delete</button>
+            <button class="btn sm ghost" type="button" id="bulk-clear">Clear</button>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <table class="records">
+            <thead>
+              <tr>
+                <th class="cb"><input type="checkbox" id="select-all" aria-label="Select all"></th>
+                <th>Type</th><th>Name</th><th>Content</th><th>TTL</th>
+                <th>Proxy <button class="info-dot" type="button" data-proxy-help aria-label="What is proxy?">?</button></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="record-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ============ Add / edit record ============ -->
+  <dialog id="record-dialog" class="modal">
+    <form id="record-form">
+      <div class="modal-head">
+        <h2 id="record-title">Add record</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Close"><i data-icon="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="field"><span>Type</span><div id="rec-types" class="seg"></div></div>
+
+        <label class="field"><span>Name</span>
+          <div class="input-group">
+            <input id="rec-name" placeholder="@" autocomplete="off" required>
+            <span class="addon" id="rec-suffix"></span>
+          </div>
+          <small class="hint" id="rec-name-hint"></small>
+        </label>
+
+        <label class="field"><span id="rec-content-label">Value</span>
+          <textarea id="rec-content" rows="2" required spellcheck="false"></textarea>
+          <small class="hint" id="rec-content-hint"></small>
+        </label>
+
+        <div class="row2">
+          <label class="field" id="rec-priority-wrap"><span>Priority</span>
+            <input id="rec-priority" type="number" min="0" max="65535" value="10">
+          </label>
+          <label class="field"><span>TTL</span><select id="rec-ttl"></select></label>
+        </div>
+
+        <div id="rec-proxy-wrap" class="proxy-card">
+          <div id="rec-cloud" class="cloud-badge"></div>
+          <div class="proxy-card-text">
+            <b id="rec-proxy-title"></b>
+            <p id="rec-proxy-desc" class="muted small"></p>
+            <button type="button" class="link" data-proxy-help>What is proxy?</button>
+          </div>
+          <label class="switch" aria-label="Proxy"><input type="checkbox" id="rec-proxied"><span></span></label>
+        </div>
+
+        <div id="rec-warning" class="callout warn" hidden></div>
+        <p id="record-error" class="form-error" hidden></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" type="button" data-close>Cancel</button>
+        <button class="btn primary" type="submit" id="record-save">Save record</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ Add domain ============ -->
+  <dialog id="zone-dialog" class="modal">
+    <form id="zone-form">
+      <div class="modal-head">
+        <h2>Add domain</h2>
+        <button class="icon-btn" type="button" data-close aria-label="Close"><i data-icon="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="zone-step1">
+          <label class="field"><span>Domain name</span>
+            <input id="zone-input" placeholder="example.com" autocomplete="off" required>
+          </label>
+          <p class="muted small">The domain can be registered anywhere (GoDaddy, Namecheap, Hostinger…). Existing DNS records are imported automatically.</p>
+        </div>
+        <div id="zone-step2" hidden></div>
+        <p id="zone-error" class="form-error" hidden></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" type="button" data-close id="zone-cancel">Cancel</button>
+        <button class="btn primary" type="submit" id="zone-save">Add domain</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ Import ============ -->
+  <dialog id="import-dialog" class="modal wide">
+    <div class="modal-head">
+      <div>
+        <h2>Import DNS records</h2>
+        <p class="muted small" id="import-sub"></p>
+      </div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><i data-icon="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <ol class="steps" id="import-steps">
+        <li class="active">Upload</li><li>Preview</li><li>Done</li>
+      </ol>
+
+      <div id="import-step1">
+        <label id="dropzone" class="dropzone">
+          <input type="file" id="import-file" accept=".txt,.zone,.db,.bind,text/plain" hidden>
+          <span class="drop-icon"><i data-icon="file"></i></span>
+          <b>Drop your zone file here</b>
+          <span class="muted small">or click to choose · .txt / .zone from Hostinger, GoDaddy, Namecheap, cPanel or Cloudflare</span>
+          <span id="import-file-name" class="file-chip" hidden></span>
+        </label>
+        <div class="or"><span>or paste it</span></div>
+        <textarea id="import-text" rows="7" class="mono" spellcheck="false"
+          placeholder="$ORIGIN example.com.&#10;@      3600 IN A     203.0.113.10&#10;www    3600 IN CNAME example.com.&#10;@      3600 IN MX 10 mail.example.com."></textarea>
+
+        <div class="proxy-card compact">
+          <div class="cloud-badge"></div>
+          <div class="proxy-card-text">
+            <b>Proxy imported website records</b>
+            <p class="muted small">Turns proxy on for imported A, AAAA and CNAME records. Leave it off if you are not sure — you can switch proxy per record later.</p>
+          </div>
+          <label class="switch" aria-label="Proxy imported records"><input type="checkbox" id="import-proxied"><span></span></label>
+        </div>
+      </div>
+
+      <div id="import-step2" hidden>
+        <div id="import-summary" class="summary"></div>
+        <div class="preview-wrap">
+          <table class="preview">
+            <thead><tr><th>Status</th><th>Type</th><th>Name</th><th>Content</th><th>TTL</th></tr></thead>
+            <tbody id="import-preview"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="import-step3" hidden></div>
+      <p id="import-error" class="form-error" hidden></p>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" type="button" id="import-back" hidden>Back</button>
+      <span class="spacer"></span>
+      <button class="btn ghost" type="button" data-close id="import-cancel">Cancel</button>
+      <button class="btn primary" type="button" id="import-next">Preview</button>
+    </div>
+  </dialog>
+
+  <!-- ============ What is proxy ============ -->
+  <dialog id="proxy-dialog" class="modal wide">
+    <div class="modal-head">
+      <div>
+        <h2>What is proxy?</h2>
+        <p class="muted small">It decides how visitors reach your server — shown as an orange or grey cloud.</p>
+      </div>
+      <button class="icon-btn" type="button" data-close aria-label="Close"><i data-icon="x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="compare">
+        <div class="compare-card on">
+          <div class="compare-head">
+            <div class="cloud-badge on"></div>
+            <div><b>Proxied</b><small>Orange cloud</small></div>
+          </div>
+          <div class="flow">
+            <span class="node">Visitor</span><span class="arrow"></span>
+            <span class="node cf">Cloudflare</span><span class="arrow"></span>
+            <span class="node">Your server</span>
+          </div>
+          <ul class="ticks">
+            <li>Hides your real server IP address</li>
+            <li>Free SSL (https) and CDN caching — faster website</li>
+            <li>Blocks DDoS attacks and bad bots</li>
+          </ul>
+          <p class="use"><b>Use for:</b> websites — <code>@</code>, <code>www</code>, <code>blog</code>, <code>shop</code></p>
+        </div>
+
+        <div class="compare-card off">
+          <div class="compare-head">
+            <div class="cloud-badge"></div>
+            <div><b>DNS only</b><small>Grey cloud</small></div>
+          </div>
+          <div class="flow">
+            <span class="node">Visitor</span><span class="arrow long"></span>
+            <span class="node">Your server</span>
+          </div>
+          <ul class="ticks">
+            <li>Points straight to your server IP</li>
+            <li>Works for every kind of service</li>
+            <li>No Cloudflare protection or caching</li>
+          </ul>
+          <p class="use"><b>Use for:</b> <code>mail</code>, <code>ftp</code>, <code>cpanel</code>, SSH, VPS panels, game servers</p>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <i data-icon="alert"></i>
+        <div><b>Keep email & FTP on DNS only.</b> Proxy only carries website traffic (http / https). Mail, FTP, SSH and similar services stop working when proxied.</div>
+      </div>
+      <div class="callout info">
+        <i data-icon="info"></i>
+        <div><b>In short:</b> Website → <b>Proxied</b>. Email, FTP, servers → <b>DNS only</b>. Proxy is available for A, AAAA and CNAME records; MX, TXT and NS are always DNS only.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="spacer"></span>
+      <button class="btn primary" type="button" data-close>Got it</button>
+    </div>
+  </dialog>
+
+  <!-- ============ Confirm ============ -->
+  <dialog id="confirm-dialog" class="modal small">
+    <form method="dialog">
+      <div class="modal-body center">
+        <div id="confirm-icon" class="confirm-icon"></div>
+        <h2 id="confirm-title"></h2>
+        <p id="confirm-msg" class="muted"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" value="cancel">Cancel</button>
+        <button class="btn danger" value="ok" id="confirm-ok">Delete</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+</body>
+</html>
